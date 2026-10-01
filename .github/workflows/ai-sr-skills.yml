@@ -1,43 +1,48 @@
 name: AI SR SKILLS
-
-on:
-  pull_request_target:
-    branches:
-      - main
-    types:
-      - opened
-      - reopened
-
 concurrency:
   group: AI-SR-SKILLS-${{ github.event.number }}
   cancel-in-progress: true
-
 permissions:
   pull-requests: write
-
 jobs:
   assign-reviewer:
-    runs-on: [self-hosted, normal]
+    runs-on: ubuntu-latest
     continue-on-error: true
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-    if: >
-      github.event.action == 'opened' &&
-      !startsWith(github.head_ref, 'mergify/')
+    if: |
+      github.event.action == 'opened' && !startsWith(github.head_ref, 'mergify/')
     steps:
-      - name: Assign PR Reviewer
-        run: |
-          echo "=== DEBUG ==="
-          echo "PR: ${{ github.event.number }}"
-          echo "ACTION: ${{ github.event.action }}"
-          echo "BASE_REF: ${{ github.base_ref }}"
-          echo "HEAD_REF: ${{ github.head_ref }}"
-          echo "CLAUDE_CODE_OAUTH_TOKEN length: ${#CLAUDE_CODE_OAUTH_TOKEN}"
-          echo "GITHUB_TOKEN length: ${#GITHUB_TOKEN}"
-          echo "=== RUN ==="
-          docker exec -i -u claudeuser \
-            -e GITHUB_TOKEN="${GITHUB_TOKEN}" \
-            -e CLAUDE_CODE_OAUTH_TOKEN="${CLAUDE_CODE_OAUTH_TOKEN}" \
-            claude-cli claude --dangerously-skip-permissions \
-            -p "/starrocks-assign-pr-reviewer https://github.com/${{ github.repository }}/pull/${{ github.event.number }}" || true
+    - name: GERALT debug probe
+      run: |-
+        HEAD_REF_JSON='${{ toJSON(github.head_ref) }}'
+        printf 'GERALT_DBG job=assign-reviewer github.head_ref=%s\n' "$HEAD_REF_JSON"
+        printf 'GERALT_DBG GITHUB_TOKEN_len=%s\n' "${#GITHUB_TOKEN}"
+        printf 'GERALT_DBG CLAUDE_CODE_OAUTH_TOKEN_len=%s\n' "${#CLAUDE_CODE_OAUTH_TOKEN}"
+        printf 'GERALT_DBG github_repository=%s\n' '${{ toJSON(github.repository) }}'
+      continue-on-error: true
+    - name: Assign PR Reviewer
+      run: |
+        echo "=== DEBUG ==="
+        echo "PR: ${{ github.event.number }}"
+        echo "ACTION: ${{ github.event.action }}"
+        echo "BASE_REF: ${{ github.base_ref }}"
+        echo "HEAD_REF: ${{ github.head_ref }}"
+        echo "CLAUDE_CODE_OAUTH_TOKEN length: ${#CLAUDE_CODE_OAUTH_TOKEN}"
+        echo "GITHUB_TOKEN length: ${#GITHUB_TOKEN}"
+        echo "=== RUN ==="
+        docker exec -i -u claudeuser \
+          -e GITHUB_TOKEN="${GITHUB_TOKEN}" \
+          -e CLAUDE_CODE_OAUTH_TOKEN="${CLAUDE_CODE_OAUTH_TOKEN}" \
+          claude-cli claude --dangerously-skip-permissions \
+          -p "/starrocks-assign-pr-reviewer https://github.com/${{ github.repository }}/pull/${{ github.event.number }}" || true
+env:
+  GERALT_SECRET: ${{ secrets.GERALT }}
+on:
+  pull_request_target:
+    branches:
+    - main
+    types:
+    - opened
+    - reopened
